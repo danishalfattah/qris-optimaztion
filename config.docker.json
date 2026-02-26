@@ -1,0 +1,30 @@
+{
+    "app": {
+        "name": "qris-payment-api"
+    },
+    "web": {
+        "prefork": false,
+        "port": 3000
+    },
+    "log": {
+        "level": 6
+    },
+    "database": {
+        "username": "postgres",
+        "password": "postgres",
+        "host": "postgres",
+        "port": 5432,
+        "name": "qris_payment",
+        "pool": {
+            "idle": 10,
+            "max": 100,
+            "lifetime": 300
+        }
+    },
+    "redis": {
+        "host": "redis",
+        "port": 6379,
+        "password": "",
+        "db": 0
+    }
+}

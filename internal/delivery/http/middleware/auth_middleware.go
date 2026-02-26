@@ -1,29 +1,62 @@
 package middleware
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+
+	"golang-clean-architecture/internal/entity"
 	"golang-clean-architecture/internal/model"
-	"golang-clean-architecture/internal/usecase"
+	"golang-clean-architecture/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
-func NewAuth(userUserCase *usecase.UserUseCase) fiber.Handler {
+func NewHMACAuth(db *gorm.DB, apiClientRepo *repository.ApiClientRepository, log *logrus.Logger) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		request := &model.VerifyUserRequest{Token: ctx.Get("Authorization", "NOT_FOUND")}
-		userUserCase.Log.Debugf("Authorization : %s", request.Token)
+		clientKey := ctx.Get("X-Client-Key")
+		timestamp := ctx.Get("X-Timestamp")
+		signature := ctx.Get("X-Signature")
 
-		auth, err := userUserCase.Verify(ctx.UserContext(), request)
-		if err != nil {
-			userUserCase.Log.Warnf("Failed find user by token : %+v", err)
-			return fiber.ErrUnauthorized
+		if clientKey == "" || timestamp == "" || signature == "" {
+			log.Warn("Missing required auth headers")
+			return ctx.Status(fiber.StatusUnauthorized).JSON(model.ApiResponse{
+				Status: "error",
+				Errors: "Missing required headers: X-Client-Key, X-Timestamp, X-Signature",
+			})
 		}
 
-		userUserCase.Log.Debugf("User : %+v", auth.ID)
-		ctx.Locals("auth", auth)
+		// Look up client
+		client := new(entity.ApiClient)
+		if err := apiClientRepo.FindByClientID(db, client, clientKey); err != nil {
+			log.Warnf("Invalid client key: %s, error: %+v", clientKey, err)
+			return ctx.Status(fiber.StatusUnauthorized).JSON(model.ApiResponse{
+				Status: "error",
+				Errors: "Invalid client key",
+			})
+		}
+
+		// Build payload: method + path + timestamp + body
+		body := ctx.Body()
+		payload := ctx.Method() + ctx.Path() + timestamp + string(body)
+
+		// Compute HMAC-SHA256
+		mac := hmac.New(sha256.New, []byte(client.ClientSecret))
+		mac.Write([]byte(payload))
+		expectedSignature := hex.EncodeToString(mac.Sum(nil))
+
+		if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
+			log.Warnf("Invalid HMAC signature for client: %s", clientKey)
+			return ctx.Status(fiber.StatusUnauthorized).JSON(model.ApiResponse{
+				Status: "error",
+				Errors: "Invalid signature",
+			})
+		}
+
+		log.Debugf("Authenticated client: %s", clientKey)
+		ctx.Locals("client_id", clientKey)
 		return ctx.Next()
 	}
-}
-
-func GetUser(ctx *fiber.Ctx) *model.Auth {
-	return ctx.Locals("auth").(*model.Auth)
 }

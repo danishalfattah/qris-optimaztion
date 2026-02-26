@@ -5,21 +5,26 @@ import (
 	"golang-clean-architecture/internal/config"
 )
 
+// @title QRIS Payment API
+// @version 1.0
+// @description QRIS Payment Processing API with HMAC-SHA256 Authentication
+// @host localhost:3000
+// @BasePath /
 func main() {
 	viperConfig := config.NewViper()
 	log := config.NewLogger(viperConfig)
 	db := config.NewDatabase(viperConfig, log)
 	validate := config.NewValidator(viperConfig)
 	app := config.NewFiber(viperConfig)
-	producer := config.NewKafkaProducer(viperConfig, log)
+	redisClient := config.NewRedis(viperConfig, log)
 
 	config.Bootstrap(&config.BootstrapConfig{
-		DB:       db,
-		App:      app,
-		Log:      log,
-		Validate: validate,
-		Config:   viperConfig,
-		Producer: producer,
+		DB:          db,
+		App:         app,
+		Log:         log,
+		Validate:    validate,
+		Config:      viperConfig,
+		RedisClient: redisClient,
 	})
 
 	webPort := viperConfig.GetInt("web.port")

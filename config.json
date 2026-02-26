@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "golang-clean-architecture"
+    "name": "qris-payment-api"
   },
   "web": {
     "prefork": false,
@@ -10,31 +10,21 @@
     "level": 6
   },
   "database": {
-    "username": "root",
-    "password": "",
+    "username": "postgres",
+    "password": "postgres",
     "host": "localhost",
-    "port": 3306,
-    "name": "golang_clean_architecture",
+    "port": 5432,
+    "name": "qris_payment",
     "pool": {
       "idle": 10,
       "max": 100,
       "lifetime": 300
     }
   },
-  "kafka": {
-    "bootstrap": {
-      "servers": "localhost:9092"
-    },
-    "group": {
-      "id": "golang-clean-architecture"
-    },
-    "auto": {
-      "offset": {
-        "reset": "earliest"
-      }
-    },
-    "producer": {
-      "enabled": false
-    }
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "password": "",
+    "db": 0
   }
 }

@@ -1,0 +1,224 @@
+{
+    "info": {
+        "name": "QRIS Payment API",
+        "_postman_id": "qris-payment-api",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "BASE_URL",
+            "value": "http://localhost:3000"
+        },
+        {
+            "key": "CLIENT_KEY",
+            "value": "MK-9921-X"
+        },
+        {
+            "key": "CLIENT_SECRET",
+            "value": "super-secret-key-123"
+        },
+        {
+            "key": "TIMESTAMP",
+            "value": ""
+        },
+        {
+            "key": "SIGNATURE",
+            "value": ""
+        },
+        {
+            "key": "INQUIRY_ID",
+            "value": ""
+        },
+        {
+            "key": "TRANSACTION_ID",
+            "value": ""
+        }
+    ],
+    "event": [
+        {
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "// Generate HMAC-SHA256 signature for ALL requests in this collection",
+                    "const timestamp = new Date().toISOString();",
+                    "const method = pm.request.method;",
+                    "",
+                    "// Resolve variables in URL path (e.g. {{TRANSACTION_ID}})",
+                    "let url = pm.variables.replaceIn(pm.request.url.getPath());",
+                    "",
+                    "// Resolve variables in body (e.g. {{INQUIRY_ID}})",
+                    "let body = pm.request.body ? pm.request.body.raw || '' : '';",
+                    "body = pm.variables.replaceIn(body);",
+                    "",
+                    "const payload = method + url + timestamp + body;",
+                    "const secret = pm.collectionVariables.get('CLIENT_SECRET');",
+                    "const signature = CryptoJS.HmacSHA256(payload, secret).toString();",
+                    "",
+                    "pm.collectionVariables.set('TIMESTAMP', timestamp);",
+                    "pm.collectionVariables.set('SIGNATURE', signature);",
+                    "",
+                    "console.log('Payload:', payload);",
+                    "console.log('Signature:', signature);"
+                ]
+            }
+        }
+    ],
+    "item": [
+        {
+            "name": "1. Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{BASE_URL}}/health",
+                    "host": [
+                        "{{BASE_URL}}"
+                    ],
+                    "path": [
+                        "health"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "2. QRIS Inquiry",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Auto-save inquiry_id for next request",
+                            "if (pm.response.code === 200) {",
+                            "    const body = pm.response.json();",
+                            "    if (body.data && body.data.inquiry_id) {",
+                            "        pm.collectionVariables.set('INQUIRY_ID', body.data.inquiry_id);",
+                            "        console.log('Saved inquiry_id:', body.data.inquiry_id);",
+                            "    }",
+                            "}"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "X-Client-Key",
+                        "value": "{{CLIENT_KEY}}"
+                    },
+                    {
+                        "key": "X-Timestamp",
+                        "value": "{{TIMESTAMP}}"
+                    },
+                    {
+                        "key": "X-Signature",
+                        "value": "{{SIGNATURE}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{BASE_URL}}/api/qris/inquiry/00020101021126690021",
+                    "host": [
+                        "{{BASE_URL}}"
+                    ],
+                    "path": [
+                        "api",
+                        "qris",
+                        "inquiry",
+                        "00020101021126690021"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "3. QRIS Payment",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "// Auto-save transaction_id for next request",
+                            "if (pm.response.code === 200) {",
+                            "    const body = pm.response.json();",
+                            "    if (body.data && body.data.transaction_id) {",
+                            "        pm.collectionVariables.set('TRANSACTION_ID', body.data.transaction_id);",
+                            "        console.log('Saved transaction_id:', body.data.transaction_id);",
+                            "    }",
+                            "}"
+                        ]
+                    }
+                }
+            ],
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    },
+                    {
+                        "key": "X-Client-Key",
+                        "value": "{{CLIENT_KEY}}"
+                    },
+                    {
+                        "key": "X-Timestamp",
+                        "value": "{{TIMESTAMP}}"
+                    },
+                    {
+                        "key": "X-Signature",
+                        "value": "{{SIGNATURE}}"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"inquiry_id\": \"{{INQUIRY_ID}}\",\n  \"user_id\": \"user_123\",\n  \"amount\": 50000,\n  \"payment_method\": \"balance\",\n  \"pincode\": \"123456\"\n}"
+                },
+                "url": {
+                    "raw": "{{BASE_URL}}/api/qris/payment",
+                    "host": [
+                        "{{BASE_URL}}"
+                    ],
+                    "path": [
+                        "api",
+                        "qris",
+                        "payment"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "4. Transaction Status",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "X-Client-Key",
+                        "value": "{{CLIENT_KEY}}"
+                    },
+                    {
+                        "key": "X-Timestamp",
+                        "value": "{{TIMESTAMP}}"
+                    },
+                    {
+                        "key": "X-Signature",
+                        "value": "{{SIGNATURE}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{BASE_URL}}/api/transaction/status/{{TRANSACTION_ID}}",
+                    "host": [
+                        "{{BASE_URL}}"
+                    ],
+                    "path": [
+                        "api",
+                        "transaction",
+                        "status",
+                        "{{TRANSACTION_ID}}"
+                    ]
+                }
+            }
+        }
+    ]
+}

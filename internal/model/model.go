@@ -1,19 +1,16 @@
 package model
 
-type WebResponse[T any] struct {
-	Data   T             `json:"data"`
-	Paging *PageMetadata `json:"paging,omitempty"`
-	Errors string        `json:"errors,omitempty"`
+// ApiResponse is the standard API response wrapper
+type ApiResponse struct {
+	Status   string      `json:"status"`
+	Data     interface{} `json:"data,omitempty"`
+	Message  string      `json:"message,omitempty"`
+	Metadata *Metadata   `json:"metadata,omitempty"`
+	Errors   string      `json:"errors,omitempty"`
 }
 
-type PageResponse[T any] struct {
-	Data         []T          `json:"data,omitempty"`
-	PageMetadata PageMetadata `json:"paging,omitempty"`
-}
-
-type PageMetadata struct {
-	Page      int   `json:"page"`
-	Size      int   `json:"size"`
-	TotalItem int64 `json:"total_item"`
-	TotalPage int64 `json:"total_page"`
+// Metadata contains response metadata
+type Metadata struct {
+	LatencyMs int64  `json:"latency_ms"`
+	Source    string `json:"source"`
 }
