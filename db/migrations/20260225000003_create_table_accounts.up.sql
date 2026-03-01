@@ -8,4 +8,4 @@ CREATE TABLE accounts (
 
 -- Seed sample account for testing (pin: 123456, bcrypt hash)
 INSERT INTO accounts (account_id, balance, currency, pin_hash, version) VALUES
-('user_123', 999999999.00, 'IDR', '$2a$10$LuiFuShDopsnneELl665GuwPgGVggEgILH7nq.rPlM7CyydZJhiwS', 0);
+('user_123', 999999999.00, 'IDR', '$2a$04$ckduPJCtfnejsuPbw9FqquTnj5.o6l/EZGT3Rhejv7/B9jIJS30Iu', 0);

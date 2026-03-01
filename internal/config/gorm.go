@@ -24,14 +24,19 @@ func NewDatabase(viper *viper.Viper, log *logrus.Logger) *gorm.DB {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable TimeZone=Asia/Jakarta",
 		host, username, password, database, port)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true, // Disable implicit prepared statement (use simple protocol for better pooling)
+	}), &gorm.Config{
 		Logger: logger.New(&logrusWriter{Logger: log}, logger.Config{
 			SlowThreshold:             time.Second * 5,
 			Colorful:                  false,
 			IgnoreRecordNotFoundError: true,
 			ParameterizedQueries:      true,
-			LogLevel:                  logger.Info,
+			LogLevel:                  logger.Warn, // Optimized: only log slow/error queries, not every SQL
 		}),
+		PrepareStmt:            true, // Optimized: cache prepared statements for reuse
+		SkipDefaultTransaction: true, // Optimized: skip wrapping single queries in transactions
 	})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
@@ -45,6 +50,7 @@ func NewDatabase(viper *viper.Viper, log *logrus.Logger) *gorm.DB {
 	connection.SetMaxIdleConns(idleConnection)
 	connection.SetMaxOpenConns(maxConnection)
 	connection.SetConnMaxLifetime(time.Second * time.Duration(maxLifeTimeConnection))
+	connection.SetConnMaxIdleTime(time.Second * 60) // Optimized: recycle idle connections after 60s
 
 	return db
 }

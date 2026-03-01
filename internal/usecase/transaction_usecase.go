@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"golang-clean-architecture/internal/entity"
@@ -9,6 +11,7 @@ import (
 	"golang-clean-architecture/internal/repository"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -16,6 +19,7 @@ import (
 type TransactionUseCase struct {
 	DB                    *gorm.DB
 	Log                   *logrus.Logger
+	RedisClient           *redis.Client
 	TransactionRepository *repository.TransactionRepository
 	AccountRepository     *repository.AccountRepository
 }
@@ -23,19 +27,32 @@ type TransactionUseCase struct {
 func NewTransactionUseCase(
 	db *gorm.DB,
 	log *logrus.Logger,
+	redisClient *redis.Client,
 	transactionRepo *repository.TransactionRepository,
 	accountRepo *repository.AccountRepository,
 ) *TransactionUseCase {
 	return &TransactionUseCase{
 		DB:                    db,
 		Log:                   log,
+		RedisClient:           redisClient,
 		TransactionRepository: transactionRepo,
 		AccountRepository:     accountRepo,
 	}
 }
 
-// GetStatus returns the status of a transaction
+// GetStatus returns the status of a transaction — checks Redis cache first
 func (u *TransactionUseCase) GetStatus(ctx context.Context, transactionID string) (*model.TransactionStatusResponse, error) {
+	// Optimization: check Redis cache first
+	cacheKey := fmt.Sprintf("txstatus:%s", transactionID)
+	cachedData, err := u.RedisClient.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var cached model.TransactionStatusResponse
+		if err := json.Unmarshal([]byte(cachedData), &cached); err == nil {
+			return &cached, nil
+		}
+	}
+
+	// Cache miss — query database
 	tx := u.DB.WithContext(ctx)
 
 	transaction := new(entity.Transaction)
@@ -51,10 +68,17 @@ func (u *TransactionUseCase) GetStatus(ctx context.Context, transactionID string
 		finalBalance = account.Balance
 	}
 
-	return &model.TransactionStatusResponse{
+	response := &model.TransactionStatusResponse{
 		TransactionID: transaction.TransactionID,
 		Status:        transaction.Status,
 		FinalBalance:  finalBalance,
 		Timestamp:     transaction.CreatedAt.Format(time.RFC3339),
-	}, nil
+	}
+
+	// Cache for future lookups
+	if cacheJSON, err := json.Marshal(response); err == nil {
+		u.RedisClient.Set(ctx, cacheKey, cacheJSON, 5*time.Minute)
+	}
+
+	return response, nil
 }

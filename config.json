@@ -3,11 +3,11 @@
     "name": "qris-payment-api"
   },
   "web": {
-    "prefork": false,
+    "prefork": true,
     "port": 3000
   },
   "log": {
-    "level": 6
+    "level": 4
   },
   "database": {
     "username": "postgres",
@@ -16,7 +16,7 @@
     "port": 5432,
     "name": "qris_payment",
     "pool": {
-      "idle": 10,
+      "idle": 50,
       "max": 100,
       "lifetime": 300
     }

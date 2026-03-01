@@ -68,7 +68,6 @@ func (u *QrisUseCase) Inquiry(ctx context.Context, qrisPayload string) (*model.I
 			merchantName = merchantCache["merchant_name"]
 			city = merchantCache["city"]
 			source = "cache"
-			u.Log.Infof("Cache hit for QRIS merchant data")
 		}
 	}
 
@@ -147,7 +146,7 @@ func (u *QrisUseCase) Payment(ctx context.Context, request *model.PaymentRequest
 
 	merchantID, _ := inquiry["merchant_id"].(string)
 
-	// Start transaction
+	// Start database transaction (explicit, since SkipDefaultTransaction is enabled)
 	tx := u.DB.WithContext(ctx).Begin()
 	defer tx.Rollback()
 
@@ -206,6 +205,18 @@ func (u *QrisUseCase) Payment(ctx context.Context, request *model.PaymentRequest
 
 	// Delete the inquiry from Redis (one-time use)
 	u.RedisClient.Del(ctx, inquiryKey)
+
+	// Optimization: Cache transaction status in Redis for fast status lookups
+	finalBalance := account.Balance - request.Amount
+	statusCache := &model.TransactionStatusResponse{
+		TransactionID: transactionID,
+		Status:        "SUCCESS",
+		FinalBalance:  finalBalance,
+		Timestamp:     transaction.CreatedAt.Format(time.RFC3339),
+	}
+	if cacheJSON, err := json.Marshal(statusCache); err == nil {
+		u.RedisClient.Set(ctx, fmt.Sprintf("txstatus:%s", transactionID), cacheJSON, 5*time.Minute)
+	}
 
 	return &model.PaymentResponse{
 		Status:              "processing",

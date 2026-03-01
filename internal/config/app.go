@@ -44,6 +44,7 @@ func Bootstrap(config *BootstrapConfig) {
 	transactionUseCase := usecase.NewTransactionUseCase(
 		config.DB,
 		config.Log,
+		config.RedisClient,
 		transactionRepository,
 		accountRepository,
 	)
@@ -52,8 +53,8 @@ func Bootstrap(config *BootstrapConfig) {
 	qrisController := http.NewQrisController(qrisUseCase, config.Log)
 	transactionController := http.NewTransactionController(transactionUseCase, config.Log)
 
-	// setup middleware
-	hmacMiddleware := middleware.NewHMACAuth(config.DB, apiClientRepository, config.Log)
+	// setup middleware — pass Redis for cached auth
+	hmacMiddleware := middleware.NewHMACAuth(config.DB, config.RedisClient, apiClientRepository, config.Log)
 
 	routeConfig := route.RouteConfig{
 		App:                   config.App,

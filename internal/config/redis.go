@@ -16,9 +16,12 @@ func NewRedis(viper *viper.Viper, log *logrus.Logger) *redis.Client {
 	db := viper.GetInt("redis.db")
 
 	client := redis.NewClient(&redis.Options{
-		Addr:     fmt.Sprintf("%s:%d", host, port),
-		Password: password,
-		DB:       db,
+		Addr:         fmt.Sprintf("%s:%d", host, port),
+		Password:     password,
+		DB:           db,
+		PoolSize:     200, // Optimized: default is 10, increased for high concurrency
+		MinIdleConns: 50,  // Keep 50 warm connections ready
+		MaxIdleConns: 100, // Maximum idle connections in pool
 	})
 
 	_, err := client.Ping(context.Background()).Result()
